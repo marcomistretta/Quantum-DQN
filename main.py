@@ -27,7 +27,7 @@ class EncodingLayer(torch.nn.Module):
         self.activation = torch.arctan
         weights = torch.Tensor(in_dim)
         self.inputWeights = torch.nn.Parameter(weights)
-        torch.nn.init.uniform_(self.inputWeights, -1, 1)  # <--  Initialization strategy
+        torch.nn.init.uniform_(self.inputWeights, -1, 1)
 
     def forward(self, X):
         return self.activation(X * self.inputWeights)
