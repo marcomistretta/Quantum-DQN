@@ -1,8 +1,8 @@
 cffi==1.15.1
 certifi==2022.12.7
 charset-normalizer==2.1.1
-cloudpickle==2.2.0
 contourpy==1.0.6
+cloudpickle==2.2.0
 cryptography==38.0.4
 cycler==0.11.0
 dill==0.3.5.1

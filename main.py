@@ -40,7 +40,7 @@ class QuantumDQN(torch.nn.Module):
         self.encodingLayer = EncodingLayer(n_qbits)
 
         self.outputWeights = torch.nn.Parameter(torch.Tensor(2))
-        torch.nn.init.uniform_(self.outputWeights, 35, 40)  # <-- Initialization strategy (heuristic choice)
+        torch.nn.init.uniform_(self.outputWeights, 35, 40)
         # self.outputWeights = torch.nn.Parameter(torch.rand(2))
 
         self.observables = [PauliSumOp.from_list([('ZZII', 1.0)]), PauliSumOp.from_list([('IIZZ', 1.0)])]
