@@ -1,23 +1,18 @@
 import random
+import time
 from collections import deque, namedtuple
-import numpy as np
-import matplotlib.pyplot as plt
-
-from qiskit.circuit import QuantumCircuit, QuantumRegister
-from qiskit.circuit.library import TwoLocal
-
-import qiskit as qk
-from qiskit.opflow import PauliSumOp
-
-from qiskit_machine_learning.neural_networks import EstimatorQNN
-from qiskit_machine_learning.connectors import TorchConnector
-
-import torch
-from torch import Tensor
-from torch.optim import Adam, SGD
 
 import gym
-import time
+import matplotlib.pyplot as plt
+import numpy as np
+import qiskit as qk
+import torch
+from qiskit.circuit import QuantumCircuit, QuantumRegister
+from qiskit.opflow import PauliSumOp
+from qiskit_machine_learning.connectors import TorchConnector
+from qiskit_machine_learning.neural_networks import EstimatorQNN
+from torch import Tensor
+from torch.optim import Adam
 
 
 class EncodingLayer(torch.nn.Module):
@@ -164,6 +159,8 @@ class Trainer:
         return outState
 
     def train(self, epochs, batch_size):
+        print("Number of preloads training Epoch: ", trainer.oldEpoch)
+        print()
         eps = 0.99
         start = time.time()
         loss_fn = torch.nn.MSELoss()
@@ -216,17 +213,17 @@ class Trainer:
             myDumbTimeList.append(myDumbTime)
 
             if epoch > 9:
-                print("Epoch: ", epoch + 1, " Loss: ", loss.item(), " AvgLoss: ",
-                      (sum(myDumbLossList[-10:]) / 10).item(),
-                      " Time: ", myDumbTime, "AvgTime: ", sum(myDumbTimeList[-10:]) / 10,
-                      " Eps: ", eps, "Steps: ", myDumbCount,
-                      "AvgSteps: ", sum(myDumbCountList[-10:]) / 10)
+                print("Epoch:", epoch + 1, "  Loss:", round(loss.item(), 3), "  AvgLoss:",
+                      round((sum(myDumbLossList[-10:]) / 10).item(), 3),
+                      "  Time:", round(myDumbTime, 3), "  AvgTime:", round(sum(myDumbTimeList[-10:]) / 10, 3),
+                      "  Eps:", round(eps, 3), "  Steps:", myDumbCount,
+                      "  AvgSteps:", round(sum(myDumbCountList[-10:]) / 10, 3))
             else:
-                print("Epoch: ", epoch + 1, " Loss: ", loss.item(), " AvgLoss: ",
-                      sum(myDumbLossList) / len(myDumbLossList),
-                      " Time: ", myDumbTime, "AvgTime: ", sum(myDumbTimeList) / len(myDumbTimeList),
-                      " Eps: ", eps, "Steps: ", myDumbCount,
-                      "AvgSteps: ", sum(myDumbCountList) / len(myDumbCountList))
+                print("Epoch:", epoch + 1, "  Loss:", round(loss.item(), 3), "  AvgLoss:",
+                      round((sum(myDumbLossList) / len(myDumbLossList)).item(), 3),
+                      "  Time:", round(myDumbTime, 3), "  AvgTime:", round(sum(myDumbTimeList) / len(myDumbTimeList), 3),
+                      "  Eps:", round(eps, 3), "  Steps:", myDumbCount,
+                      "  AvgSteps:", round(sum(myDumbCountList) / len(myDumbCountList)), 3)
             if epoch % 10 == 0:
                 print()
                 print("Optimized")
@@ -331,6 +328,5 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on: ", device)
 
 trainer = Trainer(path="speriamoBene.pt", loadCheckpoint=False, saveModel=True)
-print("Epoch ", trainer.oldEpoch)
 trainer.train(3000, 16)
 trainer.test(200)
