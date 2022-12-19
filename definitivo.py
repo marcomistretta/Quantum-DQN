@@ -226,6 +226,11 @@ class Trainer:
                       " Time: ", myDumbTime, "AvgTime: ", sum(myDumbTimeList[-10:]) / 10,
                       " Eps: ", eps, "Steps: ", myDumbCount,
                       "AvgSteps: ", sum(myDumbCountList[-10:]) / 10)
+            else:
+                print("Epoch: ", epoch + 1, " Loss: ", loss.item(), " AvgLoss: ", sum(myDumbLossList) / len(myDumbLossList),
+                      " Time: ", myDumbTime, "AvgTime: ", sum(myDumbTimeList) / len(myDumbTimeList),
+                      " Eps: ", eps, "Steps: ", myDumbCount,
+                      "AvgSteps: ", sum(myDumbCountList) / len(myDumbCountList))
             if epoch % 10 == 0:
                 torch.save({
                     'epoch': epoch,
@@ -324,5 +329,5 @@ print("Running on: ", device)
 
 trainer = Trainer(path="definitiveModel.pt", loadCheckpoint=False)
 print("Epoch ", trainer.oldEpoch)
-trainer.train(1500, 16)
+trainer.train(3000, 16)
 trainer.test(200)
