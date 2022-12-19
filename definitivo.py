@@ -165,6 +165,9 @@ class Trainer:
         eps = 0.99
         start = time.time()
         loss_fn = torch.nn.MSELoss()
+        myDumbCountList = []
+        myDumbTimeList = []
+        myDumbLossList = []
 
         for epoch in range(self.oldEpoch, epochs):
 
@@ -189,7 +192,7 @@ class Trainer:
 
             reduced_q_vals = torch.sum(q_values.cpu() * torch.IntTensor(action_masks), dim=1)
             loss = loss_fn(reduced_q_vals, target_Q_values)
-
+            myDumbLossList.append(loss)
             loss.backward()
 
             self.optimizer_qnn.step()
@@ -198,22 +201,30 @@ class Trainer:
 
             self.env_state, _ = self.env.reset()
 
+            myDumbCount = 0
             for _ in range(200):
+                myDumbCount = myDumbCount + 1
                 if self.epsilonGreedy(eps):
                     break
-
+            myDumbCountList.append(myDumbCount)
             eps = max(eps * 0.99, 0.01)
+
+            end = time.time()
+            myDumbTime = end - start
+            myDumbTimeList.append(myDumbTime)
+            print()
             if epoch % 10 == 0:
-                end = time.time()
-                print()
                 print("Optimized")
                 print(self.pQuantumCircuit.weight)
                 print(self.encodingLayer.inputWeights)
                 print(self.outputLayer.outputWeights)
                 print()
-
-                print("Epoch: ", epoch + 1, " Loss: ", loss.item(), " Time: ", end - start, " Eps: ", eps)
-                start = time.time()
+            if epoch > 9:
+                print("Epoch: ", epoch + 1, " Loss: ", loss.item(), " AvgLoss: ", sum(myDumbLossList[-10:]) / 10,
+                      " Time: ", myDumbTime, "AvgTime: ", sum(myDumbTimeList[-10:]) / 10,
+                      " Eps: ", eps, "Steps: ", myDumbCount,
+                      "AvgSteps: ", sum(myDumbCountList[-10:]) / 10)
+            if epoch % 10 == 0:
                 torch.save({
                     'epoch': epoch,
                     'qnn_state_dict': self.pQuantumCircuit.state_dict(),
@@ -223,21 +234,23 @@ class Trainer:
                     'loss': loss,
                 }, self.path)
 
-                self.env_state, _ = self.env.reset()
-                step = 0
-                for step in range(200):
+            start = time.time()
 
-                    with torch.no_grad():
-                        Q_values = self.getQvalue(Tensor(self.env_state).to(device)).cpu().numpy()
-                    action = np.argmax(Q_values)
-
-                    self.env_state, _, terminated, truncated, _ = self.env.step(action)
-                    done = terminated or truncated
-                    if done:
-                        break
-
-                print("Survived for ", step + 1, " steps")
-                self.env_state, _ = self.env.reset()
+            # self.env_state, _ = self.env.reset()
+            # step = 0
+            # for step in range(200):
+            #
+            #     with torch.no_grad():
+            #         Q_values = self.getQvalue(Tensor(self.env_state).to(device)).cpu().numpy()
+            #     action = np.argmax(Q_values)
+            #
+            #     self.env_state, _, terminated, truncated, _ = self.env.step(action)
+            #     done = terminated or truncated
+            #     if done:
+            #         break
+            #
+            # print("Survived for ", step + 1, " steps")
+            # self.env_state, _ = self.env.reset()
 
     def epsilonGreedy(self, epsilon=0.):
 
@@ -309,6 +322,7 @@ print("Running on: ", device)
 
 # Trainer().train(2000, 16)
 trainer = Trainer(path="definitiveModel.pt", loadCheckpoint=False)
-print("Epoch ", trainer.oldEpoch)
+# print("Epoch ", trainer.oldEpoch)
 # trainer.test(20000)
-trainer.train(1000, 16)
+trainer.train(1500, 16)
+trainer.test(200)
