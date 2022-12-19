@@ -117,7 +117,8 @@ class ReplayMemory(object):
 
 class Trainer:
     def __init__(self, capacity=10000, env_name="CartPole-v1", discount_rate=0.99, path="model_weight_ok.pt",
-                 loadCheckpoint=False):
+                 loadCheckpoint=False, saveModel = False):
+        self.saveModel = saveModel
         self.discount_rate = discount_rate
         self.env_name = env_name
         self.capacity = capacity
@@ -141,17 +142,18 @@ class Trainer:
         self.env_state = None
         self.path = path
 
-        # if loadCheckpoint:
-        #     self.checkpoint = torch.load(self.path)
-        #     self.model.load_state_dict(self.checkpoint['model_state_dict'])
-        #     # self.optimizer.load_state_dict(self.checkpoint['optimizer_state_dict'])
-        #     self.oldEpoch = self.checkpoint['epoch']
+        if loadCheckpoint:
+            self.checkpoint = torch.load(self.path)
+            self.pQuantumCircuit.load_state_dict(self.checkpoint['qnn_state_dict'])
+            self.encodingLayer.load_state_dict(self.checkpoint['qnc_state_dict'])
+            self.outputLayer.load_state_dict(self.checkpoint['out_state_dict'])
+            self.oldEpoch = self.checkpoint['epoch']
 
-        # print("Initial")
-        # print(self.model.encodingLayer.inputWeights)
-        # print(self.model.quantumCircuit.weight)
-        # print(self.model.outputWeights)
-        # print()
+        print("Initial")
+        print(self.pQuantumCircuit.weight)
+        print(self.encodingLayer.inputWeights)
+        print(self.outputLayer.outputWeights)
+        print()
         self.initReplayBuffer()
 
     def getQvalue(self, state):
@@ -320,9 +322,7 @@ class Trainer:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on: ", device)
 
-# Trainer().train(2000, 16)
 trainer = Trainer(path="definitiveModel.pt", loadCheckpoint=False)
-# print("Epoch ", trainer.oldEpoch)
-# trainer.test(20000)
+print("Epoch ", trainer.oldEpoch)
 trainer.train(1500, 16)
 trainer.test(200)
