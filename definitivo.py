@@ -117,7 +117,7 @@ class ReplayMemory(object):
 
 class Trainer:
     def __init__(self, capacity=10000, env_name="CartPole-v1", discount_rate=0.99, path="model_weight_ok.pt",
-                 loadCheckpoint=False, saveModel = False):
+                 loadCheckpoint=False, saveModel=False):
         self.saveModel = saveModel
         self.discount_rate = discount_rate
         self.env_name = env_name
@@ -214,32 +214,35 @@ class Trainer:
             end = time.time()
             myDumbTime = end - start
             myDumbTimeList.append(myDumbTime)
-            print()
+
+            if epoch > 9:
+                print("Epoch: ", epoch + 1, " Loss: ", loss.item(), " AvgLoss: ",
+                      (sum(myDumbLossList[-10:]) / 10).item(),
+                      " Time: ", myDumbTime, "AvgTime: ", sum(myDumbTimeList[-10:]) / 10,
+                      " Eps: ", eps, "Steps: ", myDumbCount,
+                      "AvgSteps: ", sum(myDumbCountList[-10:]) / 10)
+            else:
+                print("Epoch: ", epoch + 1, " Loss: ", loss.item(), " AvgLoss: ",
+                      sum(myDumbLossList) / len(myDumbLossList),
+                      " Time: ", myDumbTime, "AvgTime: ", sum(myDumbTimeList) / len(myDumbTimeList),
+                      " Eps: ", eps, "Steps: ", myDumbCount,
+                      "AvgSteps: ", sum(myDumbCountList) / len(myDumbCountList))
             if epoch % 10 == 0:
+                print()
                 print("Optimized")
                 print(self.pQuantumCircuit.weight)
                 print(self.encodingLayer.inputWeights)
                 print(self.outputLayer.outputWeights)
                 print()
-            if epoch > 9:
-                print("Epoch: ", epoch + 1, " Loss: ", loss.item(), " AvgLoss: ", sum(myDumbLossList[-10:]) / 10,
-                      " Time: ", myDumbTime, "AvgTime: ", sum(myDumbTimeList[-10:]) / 10,
-                      " Eps: ", eps, "Steps: ", myDumbCount,
-                      "AvgSteps: ", sum(myDumbCountList[-10:]) / 10)
-            else:
-                print("Epoch: ", epoch + 1, " Loss: ", loss.item(), " AvgLoss: ", sum(myDumbLossList) / len(myDumbLossList),
-                      " Time: ", myDumbTime, "AvgTime: ", sum(myDumbTimeList) / len(myDumbTimeList),
-                      " Eps: ", eps, "Steps: ", myDumbCount,
-                      "AvgSteps: ", sum(myDumbCountList) / len(myDumbCountList))
-            if epoch % 10 == 0:
-                torch.save({
-                    'epoch': epoch,
-                    'qnn_state_dict': self.pQuantumCircuit.state_dict(),
-                    'qnc_state_dict': self.encodingLayer.state_dict(),
-                    'out_state_dict': self.outputLayer.state_dict(),
-                    # 'optimizer_state_dict': self.optimizer.state_dict(),
-                    'loss': loss,
-                }, self.path)
+                if self.saveModel:
+                    torch.save({
+                        'epoch': epoch,
+                        'qnn_state_dict': self.pQuantumCircuit.state_dict(),
+                        'qnc_state_dict': self.encodingLayer.state_dict(),
+                        'out_state_dict': self.outputLayer.state_dict(),
+                        # 'optimizer_state_dict': self.optimizer.state_dict(),
+                        'loss': loss,
+                    }, self.path)
 
             start = time.time()
 
@@ -327,7 +330,7 @@ class Trainer:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on: ", device)
 
-trainer = Trainer(path="definitiveModel.pt", loadCheckpoint=False)
+trainer = Trainer(path="speriamoBene.pt", loadCheckpoint=False, saveModel=True)
 print("Epoch ", trainer.oldEpoch)
 trainer.train(3000, 16)
 trainer.test(200)
