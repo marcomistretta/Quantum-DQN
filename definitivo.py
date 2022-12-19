@@ -143,6 +143,12 @@ class Trainer:
             self.encodingLayer.load_state_dict(self.checkpoint['qnc_state_dict'])
             self.outputLayer.load_state_dict(self.checkpoint['out_state_dict'])
             self.oldEpoch = self.checkpoint['epoch']
+            try:
+                self.optimizer_qnn.load_state_dict(self.checkpoint['qnn_optimizer_state_dict'])
+                self.optimizer_enc.load_state_dict(self.checkpoint['enc_optimizer_state_dict'])
+                self.optimizer_out.load_state_dict(self.checkpoint['out_optimizer_state_dict'])
+            except:
+                print("Non ho voglia di riscriverlo giuro era super carino")
 
         print("Initial")
         print(self.pQuantumCircuit.weight)
@@ -158,10 +164,10 @@ class Trainer:
         outState = self.outputLayer(qnnstate)
         return outState
 
-    def train(self, epochs, batch_size):
+    def train(self, epochs, batch_size, eps=0.99):
         print("Number of preloads training Epoch: ", trainer.oldEpoch)
         print()
-        eps = 0.99
+
         start = time.time()
         loss_fn = torch.nn.MSELoss()
         myDumbCountList = []
@@ -221,7 +227,8 @@ class Trainer:
             else:
                 print("Epoch:", epoch + 1, "  Loss:", round(loss.item(), 3), "  AvgLoss:",
                       round((sum(myDumbLossList) / len(myDumbLossList)).item(), 3),
-                      "  Time:", round(myDumbTime, 3), "  AvgTime:", round(sum(myDumbTimeList) / len(myDumbTimeList), 3),
+                      "  Time:", round(myDumbTime, 3), "  AvgTime:",
+                      round(sum(myDumbTimeList) / len(myDumbTimeList), 3),
                       "  Eps:", round(eps, 3), "  Steps:", myDumbCount,
                       "  AvgSteps:", round(sum(myDumbCountList) / len(myDumbCountList)), 3)
             if epoch % 10 == 0:
@@ -237,27 +244,13 @@ class Trainer:
                         'qnn_state_dict': self.pQuantumCircuit.state_dict(),
                         'qnc_state_dict': self.encodingLayer.state_dict(),
                         'out_state_dict': self.outputLayer.state_dict(),
-                        # 'optimizer_state_dict': self.optimizer.state_dict(),
+                        'qnn_optimizer_state_dict': self.optimizer_qnn.state_dict(),
+                        'enc_optimizer_state_dict': self.optimizer_enc.state_dict(),
+                        'out_optimizer_state_dict': self.optimizer_out.state_dict(),
                         'loss': loss,
                     }, self.path)
 
             start = time.time()
-
-            # self.env_state, _ = self.env.reset()
-            # step = 0
-            # for step in range(200):
-            #
-            #     with torch.no_grad():
-            #         Q_values = self.getQvalue(Tensor(self.env_state).to(device)).cpu().numpy()
-            #     action = np.argmax(Q_values)
-            #
-            #     self.env_state, _, terminated, truncated, _ = self.env.step(action)
-            #     done = terminated or truncated
-            #     if done:
-            #         break
-            #
-            # print("Survived for ", step + 1, " steps")
-            # self.env_state, _ = self.env.reset()
 
     def epsilonGreedy(self, epsilon=0.):
 
@@ -327,6 +320,6 @@ class Trainer:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on: ", device)
 
-trainer = Trainer(path="speriamoBene.pt", loadCheckpoint=False, saveModel=True)
-trainer.train(3000, 16)
+trainer = Trainer(path="definitiveModel.pt", loadCheckpoint=True, saveModel=True)
+trainer.train(3000, 16, 0.30)
 trainer.test(200)
