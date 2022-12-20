@@ -309,9 +309,9 @@ class Trainer:
             state, _ = self.env.reset()
             for step in range(200):
                 Q_values = self.getQvalue(Tensor(state).to(device)).cpu().detach().numpy()
-                action = np.argmax(Q_values[0])
+                action = np.argmax(Q_values)
 
-                obs, reward, done, info, _ = self.env.step(action)
+                state, reward, done, info, _ = self.env.step(action)
                 if done:
                     break
             print("Survived for ", step + 1, " steps")
@@ -321,5 +321,5 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on: ", device)
 
 trainer = Trainer(path="definitiveModel.pt", loadCheckpoint=True, saveModel=True)
-trainer.train(3000, 16, 0.30)
+trainer.train(5000, 16, 0.20)
 trainer.test(200)
