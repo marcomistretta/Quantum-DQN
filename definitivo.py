@@ -48,7 +48,7 @@ def createCircuit(n_qbits=4, n_reps=5):
                        weight_params=weightParam,
                        observables=observables, input_gradients=True)
     initial_weights = (2 * np.random.rand(qnn.num_weights) - 1)
-    return TorchConnector(qnn, initial_weights)
+    return TorchConnector(qnn)
 
 
 def buildQuantumCircuit(n_reps, n_qbits):
@@ -111,7 +111,7 @@ class ReplayMemory(object):
 
 
 class Trainer:
-    def __init__(self, capacity=10000, env_name="CartPole-v1", discount_rate=0.99, path="model_weight_ok.pt",
+    def __init__(self, capacity=2000, env_name="CartPole-v1", discount_rate=0.99, path="model_weight_ok.pt",
                  loadCheckpoint=False, saveModel=False):
         self.saveModel = saveModel
         self.discount_rate = discount_rate
@@ -131,8 +131,8 @@ class Trainer:
         self.outputLayer.to(device)
 
         self.optimizer_qnn = Adam(self.pQuantumCircuit.parameters(), lr=0.001)
-        self.optimizer_enc = Adam(self.encodingLayer.parameters(), lr=0.01)
-        self.optimizer_out = Adam(self.outputLayer.parameters(), lr=0.01)
+        self.optimizer_enc = Adam(self.encodingLayer.parameters(), lr=0.1)
+        self.optimizer_out = Adam(self.outputLayer.parameters(), lr=0.1)
 
         self.env_state = None
         self.path = path
@@ -205,14 +205,24 @@ class Trainer:
             self.optimizer_out.step()
 
             self.env_state, _ = self.env.reset()
+            if epoch % 5:
+                for _ in range(200):
+                    eps = max(0.9 - epoch / (epochs * 0.80), 0.01)
+                    if self.epsilonGreedy(eps):
+                        break
 
-            myDumbCount = 0
-            for _ in range(200):
-                myDumbCount = myDumbCount + 1
-                if self.epsilonGreedy(eps):
-                    break
-            myDumbCountList.append(myDumbCount)
-            eps = max(eps * 0.99, 0.01)
+            myDumbCount = np.empty(10)
+            for k in range(10):
+                state, _ = self.env.reset()
+                for step in range(200):
+                    Q_values = self.getQvalue(Tensor(state).to(device)).cpu().detach().numpy()
+                    action = np.argmax(Q_values)
+
+                    state, reward, done, info, _ = self.env.step(action)
+                    if done:
+                        break
+                myDumbCount[k] = step
+            myDumbCountList.append(myDumbCount.mean())
 
             end = time.time()
             myDumbTime = end - start
@@ -320,6 +330,6 @@ class Trainer:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on: ", device)
 
-trainer = Trainer(path="definitiveModel.pt", loadCheckpoint=True, saveModel=True)
-trainer.train(5000, 16, 0.20)
+trainer = Trainer(path="final.pt", loadCheckpoint=False, saveModel=True)
+trainer.train(5000, 16, 0.99)
 trainer.test(200)
