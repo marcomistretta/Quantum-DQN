@@ -10,6 +10,7 @@ import qiskit as qk
 import torch
 from qiskit.circuit import QuantumCircuit, QuantumRegister
 from qiskit.utils import QuantumInstance
+from qiskit_aer import AerSimulator
 from qiskit_machine_learning.connectors import TorchConnector
 from qiskit_machine_learning.neural_networks import CircuitQNN
 from torch import Tensor
@@ -50,11 +51,18 @@ class OutputLayer(torch.nn.Module):
 
 class CircuitBuilder:
     @staticmethod
-    def createCircuit(n_qbits=4, n_reps=5):
+    def createCircuit(n_qbits=4, n_reps=5, noisy=True):
 
         inputsParam, weightParam, quantumCircuitRaw = CircuitBuilder.buildQuantumCircuit(n_reps, n_qbits)
 
-        qi = QuantumInstance(qk.Aer.get_backend('statevector_simulator'))
+        if noisy:
+            provider = qk.IBMQ.load_account()
+            backend = provider.get_backend('ibm_oslo')
+
+            backend_sim = AerSimulator.from_backend(backend)
+            qi = QuantumInstance(backend_sim)
+        else:
+            qi = QuantumInstance(qk.Aer.get_backend('statevector_simulator'))
 
         qnn = CircuitQNN(quantumCircuitRaw, input_params=inputsParam, weight_params=weightParam,
                          quantum_instance=qi)
