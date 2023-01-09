@@ -56,12 +56,14 @@ class CircuitBuilder:
         inputsParam, weightParam, quantumCircuitRaw = CircuitBuilder.buildQuantumCircuit(n_reps, n_qbits)
 
         if noisy:
+            print("Noisy Backend, IBM Oslo")
             provider = qk.IBMQ.load_account()
             backend = provider.get_backend('ibm_oslo')
 
             backend_sim = AerSimulator.from_backend(backend)
             qi = QuantumInstance(backend_sim)
         else:
+            print("NOT-Noisy Backend, Statevector Simulator")
             qi = QuantumInstance(qk.Aer.get_backend('statevector_simulator'))
 
         qnn = CircuitQNN(quantumCircuitRaw, input_params=inputsParam, weight_params=weightParam,
@@ -129,7 +131,7 @@ class ReplayMemory(object):
 
 class Model:
     def __init__(self, capacity=2000, env_name="CartPole-v1", discount_rate=0.99, load_path=None, save_path=None,
-                 loadCheckpoint=False, saveModel=False):
+                 loadCheckpoint=False, saveModel=False, noisy=False):
         self.saveModel = saveModel
         self.discount_rate = discount_rate
         self.env_name = env_name
@@ -138,7 +140,7 @@ class Model:
         self.env = gym.make(self.env_name)
         self.oldEpoch = 0
 
-        self.pQuantumCircuit = CircuitBuilder.createCircuit()
+        self.pQuantumCircuit = CircuitBuilder.createCircuit(noisy=noisy)
         self.pQuantumCircuit.to(device)
 
         self.encodingLayer = EncodingLayer(4)
@@ -353,7 +355,7 @@ class Model:
                 np.save(self.save_path + "epses.npy", epsList)
                 np.save(self.save_path + "rewards.npy", stepList)
                 np.save(self.save_path + "realsteps.npy", realStepList)
-            if epoch % 50 == 0:
+            if epoch % 100 == 0:
                 print(self.pQuantumCircuit.weight)
                 print(self.encodingLayer.inputWeights)
                 print(self.outputLayer.outputWeights)
@@ -496,11 +498,11 @@ class Model:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on: ", device)
 
-NUM_EPOCHS = 3
+NUM_EPOCHS = 500
 BATCH_SIZE = 16
 load_path = "models_and_checkpoint/checkpoint-350-model.pth"
 
-model = Model(save_path="test_se_funziona/", loadCheckpoint=False, saveModel=True)
+model = Model(save_path="noisy/", loadCheckpoint=False, saveModel=True, noisy=True)
 model.train(NUM_EPOCHS, BATCH_SIZE)
-model.load(load_path)
-model.test(repetition=3)
+# model.load(load_path)
+model.test(repetition=200)
