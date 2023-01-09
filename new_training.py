@@ -14,6 +14,9 @@ from qiskit_machine_learning.connectors import TorchConnector
 from qiskit_machine_learning.neural_networks import CircuitQNN
 from torch import Tensor
 from torch.optim import Adam
+import warnings
+
+warnings.filterwarnings("ignore")
 
 seed = 42
 np.random.seed(seed)
@@ -34,15 +37,7 @@ class EncodingLayer(torch.nn.Module):
         return self.activation(X * self.inputWeights)
 
 
-def argmax(Q_values):
-    if Q_values[0] >= Q_values[1]:
-        ret = 0
-    else:
-        ret = 1
-    return ret
-
-
-class OutputLayer(torch.nn.Module):  # todo è hardcodato
+class OutputLayer(torch.nn.Module):
     def __init__(self, outdim):
         super().__init__()
 
@@ -53,47 +48,46 @@ class OutputLayer(torch.nn.Module):  # todo è hardcodato
         return ((X + 1) / 2) * self.outputWeights
 
 
-def createCircuit(n_qbits=4, n_reps=5):
-    # observables = [PauliSumOp.from_list([('ZZII', 1.0)]), PauliSumOp.from_list([('IIZZ', 1.0)])]
+class CircuitBuilder:
+    @staticmethod
+    def createCircuit(n_qbits=4, n_reps=5):
 
-    inputsParam, weightParam, quantumCircuitRaw = buildQuantumCircuit(n_reps, n_qbits)
+        inputsParam, weightParam, quantumCircuitRaw = CircuitBuilder.buildQuantumCircuit(n_reps, n_qbits)
 
-    # qnn = EstimatorQNN(circuit=quantumCircuitRaw, input_params=inputsParam,
-    #                    weight_params=weightParam, input_gradients=True)
-    qi = QuantumInstance(qk.Aer.get_backend('statevector_simulator'))
+        qi = QuantumInstance(qk.Aer.get_backend('statevector_simulator'))
 
-    qnn = CircuitQNN(quantumCircuitRaw, input_params=inputsParam, weight_params=weightParam,
-                     quantum_instance=qi)
-    initial_weights = (2 * np.random.rand(qnn.num_weights) - 1)
-    return TorchConnector(qnn, initial_weights)
+        qnn = CircuitQNN(quantumCircuitRaw, input_params=inputsParam, weight_params=weightParam,
+                         quantum_instance=qi)
+        initial_weights = (2 * np.random.rand(qnn.num_weights) - 1)
+        return TorchConnector(qnn, initial_weights)
 
+    @staticmethod
+    def buildQuantumCircuit(n_reps, n_qbits):
+        qr = QuantumRegister(n_qbits, 'qr')
 
-def buildQuantumCircuit(n_reps, n_qbits):
-    qr = QuantumRegister(n_qbits, 'qr')
+        qc = QuantumCircuit(qr)
 
-    qc = QuantumCircuit(qr)
+        parameters = qk.circuit.ParameterVector('theta', 2 * n_qbits * n_reps)
+        inputParameters = qk.circuit.ParameterVector('x', n_qbits)
+        for i in range(n_reps):
 
-    parameters = qk.circuit.ParameterVector('theta', 2 * n_qbits * n_reps)
-    inputParameters = qk.circuit.ParameterVector('x', n_qbits)
-    for i in range(n_reps):
+            qc.barrier()
 
-        qc.barrier()
+            for j in range(n_qbits):
+                qc.rx(inputParameters[j], j)
+                qc.ry(parameters[j + (2 * i * n_qbits)], j)
+                qc.rz(parameters[n_qbits + j + (2 * i * n_qbits)], j)
 
-        for j in range(n_qbits):
-            qc.rx(inputParameters[j], j)
-            qc.ry(parameters[j + (2 * i * n_qbits)], j)
-            qc.rz(parameters[n_qbits + j + (2 * i * n_qbits)], j)
+            qc.cz(qr[0], qr[3])
+            qc.cz(qr[0], qr[1])
+            qc.cz(qr[1], qr[2])
+            qc.cz(qr[2], qr[3])
 
-        qc.cz(qr[0], qr[3])  # todo farlo diventare uguale per n qbit
-        qc.cz(qr[0], qr[1])
-        qc.cz(qr[1], qr[2])
-        qc.cz(qr[2], qr[3])
+            qc.barrier()
 
-        qc.barrier()
-
-    qc.draw(output='mpl', style={'backgroundcolor': '#EEEEEE'})
-    plt.show()
-    return inputParameters, parameters, qc
+        qc.draw(output='mpl', style={'backgroundcolor': '#EEEEEE'})
+        plt.show()
+        return inputParameters, parameters, qc
 
 
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'done'))
@@ -104,8 +98,6 @@ class ReplayMemory(object):
         self.memory = deque([], maxlen=capacity)
 
     def push(self, *args):
-        """Save a transition"""
-
         self.memory.append(Transition(*args))
 
     def sample(self, batch_size):
@@ -127,7 +119,7 @@ class ReplayMemory(object):
         return len(self.memory)
 
 
-class Trainer:
+class Model:
     def __init__(self, capacity=2000, env_name="CartPole-v1", discount_rate=0.99, load_path=None, save_path=None,
                  loadCheckpoint=False, saveModel=False):
         self.saveModel = saveModel
@@ -138,7 +130,7 @@ class Trainer:
         self.env = gym.make(self.env_name)
         self.oldEpoch = 0
 
-        self.pQuantumCircuit = createCircuit()
+        self.pQuantumCircuit = CircuitBuilder.createCircuit()
         self.pQuantumCircuit.to(device)
 
         self.encodingLayer = EncodingLayer(4)
@@ -180,8 +172,16 @@ class Trainer:
         print()
         self.initReplayBuffer()
 
+    @staticmethod
+    def argmax(Q_values):
+        if Q_values[0] >= Q_values[1]:
+            ret = 0
+        else:
+            ret = 1
+        return ret
+
     def getQvalue(self, state):
-        # TODO check
+
         encodedState = self.encodingLayer(state)
         qnnstate = self.pQuantumCircuit.forward(encodedState)
 
@@ -227,7 +227,7 @@ class Trainer:
             eps = 1.1 - (1 / cosh + (epoch * C / epochs))
 
             start = time.time()
-            # TODO l'ho aggiunto anche se non penso che serva
+            # l'ho aggiunto anche se non penso che serva
             self.env.reset()
 
             # eps = max(eps * 0.99, 0.05)
@@ -275,7 +275,7 @@ class Trainer:
                 for step2 in range(200):
                     with torch.no_grad():
                         Q_values = self.getQvalue(Tensor(state).to(device)).cpu().detach().numpy()
-                        action = argmax(Q_values)
+                        action = self.argmax(Q_values)
                     state, reward, done, info, _ = self.env.step(action)
                     if done:
                         break
@@ -395,7 +395,7 @@ class Trainer:
 
             with torch.no_grad():
                 Q_values = self.getQvalue(Tensor(self.env_state).to(device)).cpu().numpy()
-            action = argmax(Q_values)
+            action = self.argmax(Q_values)
 
         next_state, reward, terminated, truncated, _ = self.env.step(action)
         done = terminated or truncated
@@ -411,7 +411,7 @@ class Trainer:
         if done:
             self.env_state, _ = self.env.reset()
             return True
-        return False  # todo farlo piu carino
+        return False
 
     def initReplayBuffer(self):
 
@@ -443,7 +443,7 @@ class Trainer:
             state, _ = self.env.reset()
             for step in range(200):
                 Q_values = self.getQvalue(Tensor(state).to(device)).cpu().detach().numpy()
-                action = argmax(Q_values)
+                action = self.argmax(Q_values)
 
                 state, reward, done, info, _ = self.env.step(action)
                 if done or info:
@@ -454,6 +454,8 @@ class Trainer:
 
     def load(self, load_path=None):
         if load_path is not None:
+            print("loading:", load_path)
+
             self.checkpoint = torch.load(load_path)
             self.pQuantumCircuit.load_state_dict(self.checkpoint['qnn_state_dict'])
             self.encodingLayer.load_state_dict(self.checkpoint['qnc_state_dict'])
@@ -466,6 +468,8 @@ class Trainer:
             except:
                 print("errore nel caricamente")
         elif self.load_path is not None:
+            print("loading:", load_path)
+
             self.checkpoint = torch.load(self.load_path)
             self.pQuantumCircuit.load_state_dict(self.checkpoint['qnn_state_dict'])
             self.encodingLayer.load_state_dict(self.checkpoint['qnc_state_dict'])
@@ -478,27 +482,17 @@ class Trainer:
             except:
                 print("errore nel caricamente")
         else:
-            self.checkpoint = torch.load(self.load_path)
-            self.pQuantumCircuit.load_state_dict(self.checkpoint['qnn_state_dict'])
-            self.encodingLayer.load_state_dict(self.checkpoint['qnc_state_dict'])
-            self.outputLayer.load_state_dict(self.checkpoint['out_state_dict'])
-            self.oldEpoch = self.checkpoint['epoch']
-            try:
-                self.optimizer_qnn.load_state_dict(self.checkpoint['qnn_optimizer_state_dict'])
-                self.optimizer_enc.load_state_dict(self.checkpoint['enc_optimizer_state_dict'])
-                self.optimizer_out.load_state_dict(self.checkpoint['out_optimizer_state_dict'])
-            except:
-                print("errore nel caricamente")
+            print("errore nel caricamente")
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on: ", device)
 
-NUM_EPOCHS = 500
+NUM_EPOCHS = 3
 BATCH_SIZE = 16
 load_path = "models_and_checkpoint/checkpoint-350-model.pth"
 
-model = Trainer(save_path="models_and_checkpoint_2/", loadCheckpoint=False, saveModel=True)
+model = Model(save_path="test_se_funziona/", loadCheckpoint=False, saveModel=True)
 model.train(NUM_EPOCHS, BATCH_SIZE)
 model.load(load_path)
-model.test(repetition=200)
+model.test(repetition=3)
