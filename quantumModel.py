@@ -182,8 +182,7 @@ class Model:
         print()
         self.initReplayBuffer()
 
-    @staticmethod
-    def argmax(Q_values):
+    def argmax(self, Q_values):
         if Q_values[0] >= Q_values[1]:
             ret = 0
         else:
@@ -447,6 +446,8 @@ class Model:
                 self.env_state = next_state
         self.env_state, _ = self.env.reset()
 
+        print("replay memory initialized with", self.replayMemory.__len__(), "examples")
+
     def test(self, repetition=10):
         stepList = []
         for _ in range(repetition):
@@ -500,9 +501,10 @@ print("Running on: ", device)
 
 NUM_EPOCHS = 500
 BATCH_SIZE = 16
-load_path = "models_and_checkpoint/checkpoint-350-model.pth"
+load_path = "quantum/checkpoint-350-model.pth"
+NOISY_SIMULATOR = False
 
-model = Model(save_path="noisy/", loadCheckpoint=False, saveModel=True, noisy=True)
+model = Model(save_path="noisy/", loadCheckpoint=False, saveModel=True, noisy=NOISY_SIMULATOR)
 model.train(NUM_EPOCHS, BATCH_SIZE)
-# model.load(load_path)
+model.load(load_path)
 model.test(repetition=200)
